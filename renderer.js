@@ -344,20 +344,20 @@ function renderPivot() {
     }
   }
 
-  // Header
+  // Header: items become rows; first col = Item, then each room
   const hr = document.createElement('tr');
-  hr.innerHTML = `<th>Room \\ Item</th>` +
-    d.items.map((i) => `<th title="${escapeHtml(i.name)} (${i.price || '-'}원)">${escapeHtml(i.name)}</th>`).join('') +
+  hr.innerHTML = `<th>Item \\ Room</th>` +
+    d.rooms.map((r) => `<th>${r}</th>`).join('') +
     `<th>합계</th>`;
   thead.appendChild(hr);
 
-  // Body
+  // Body: one row per item
   const frag = document.createDocumentFragment();
-  for (const room of d.rooms) {
+  for (const it of d.items) {
     const tr = document.createElement('tr');
     let rowSum = 0;
-    let html = `<th>${room}</th>`;
-    for (const it of d.items) {
+    let html = `<th title="${escapeHtml(it.name)} (${it.price || '-'}원)">${escapeHtml(it.name)}</th>`;
+    for (const room of d.rooms) {
       const q = (d.grid[room] && d.grid[room][it.name]) || 0;
       rowSum += q;
       const status = matchIdx[`${room}|${it.name}`];
