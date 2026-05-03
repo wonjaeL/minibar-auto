@@ -7,81 +7,128 @@
   </head>
   <body>
     <header class="tabs">
-      <button class="tab active" data-tab="excel">Excel → 소비 현황</button>
+      <button class="tab active" data-tab="excel">미니바 정산</button>
       <button class="tab" data-tab="xml">XML Viewer</button>
     </header>
 
     <section id="tab-excel" class="panel active">
-      <div class="row">
-        <button id="excel-pick">Excel 선택</button>
-        <span id="excel-path" class="path muted">Excel 없음</span>
+      <h3 class="sec-title">① 입력 파이프라인</h3>
+      <div class="pipeline">
+        <div class="step" id="step-excel">
+          <span class="step-num">1</span>
+          <div class="step-body">
+            <div class="step-title">Housekeeping Excel <span class="step-kind">(실제 소비 — Ground Truth)</span></div>
+            <div class="step-meta muted">선택되지 않음</div>
+          </div>
+          <button class="step-btn" id="excel-pick">선택</button>
+        </div>
+        <div class="step" id="step-dep">
+          <span class="step-num">2</span>
+          <div class="step-body">
+            <div class="step-title">체크아웃 객실 CSV <span class="step-kind">(Departure)</span></div>
+            <div class="step-meta muted">선택되지 않음</div>
+          </div>
+          <button class="step-btn" id="dep-pick">선택</button>
+        </div>
+        <div class="step" id="step-inh">
+          <span class="step-num">3</span>
+          <div class="step-body">
+            <div class="step-title">In-house 객실 CSV <span class="step-kind">(현재 투숙)</span></div>
+            <div class="step-meta muted">선택되지 않음</div>
+          </div>
+          <button class="step-btn" id="inh-pick">선택</button>
+        </div>
+        <div class="step" id="step-xml">
+          <span class="step-num">4</span>
+          <div class="step-body">
+            <div class="step-title">finjrnl XML <span class="step-kind">(PMS 청구 트랜잭션)</span></div>
+            <div class="step-meta muted">선택되지 않음</div>
+          </div>
+          <button class="step-btn" id="xml-pick-2">선택</button>
+        </div>
       </div>
-      <div class="row">
-        <button id="resv-pick">Reservation CSV 선택</button>
-        <span id="resv-path" class="path muted">CSV 없음</span>
-        <span id="resv-meta" class="muted"></span>
-      </div>
+
       <div class="row">
         <label>날짜 <input type="date" id="excel-date" /></label>
-        <button id="excel-run" disabled>추출</button>
-        <button id="excel-copy" disabled>Room CSV 복사</button>
-        <button id="excel-match" disabled title="XML Viewer 탭에서 XML을 먼저 로드하세요">XML과 매칭 + Report</button>
-      </div>
-      <div class="row">
+        <button id="excel-run" disabled>리포트 생성</button>
         <span id="excel-meta" class="muted"></span>
       </div>
 
       <details class="csv-box">
-        <summary>Room No. CSV</summary>
+        <summary>Room No. CSV (콤마 구분)</summary>
+        <div class="row">
+          <button id="excel-copy" disabled>Room CSV 복사</button>
+        </div>
         <textarea id="excel-out" rows="3" readonly></textarea>
       </details>
 
       <div id="excel-summary" class="cards"></div>
 
-      <div class="row legend hidden" id="legend">
-        <span class="lg-item"><span class="sw cell-match"></span>일치</span>
-        <span class="lg-item"><span class="sw cell-qty-mismatch"></span>수량 불일치</span>
-        <span class="lg-item"><span class="sw cell-only-excel"></span>Excel만</span>
-        <span class="lg-item"><span class="sw cell-only-xml"></span>XML만</span>
-        <span class="lg-item"><span class="sw cell-have"></span>수량 있음 (미매칭)</span>
+      <h3 class="sec-title" id="action-title" style="display:none">🚨 조치 필요</h3>
+      <div class="row" id="action-controls" style="display:none">
+        <label>유형
+          <select id="action-filter">
+            <option value="">전체</option>
+            <option value="critical">🚨 체크아웃-미청구만</option>
+            <option value="warning">⚠️ 인하우스-미청구만</option>
+            <option value="review">ℹ️ 수량 불일치/검토만</option>
+          </select>
+        </label>
+        <label>검색
+          <input type="text" id="action-search" placeholder="Room/Conf/Name/Item…" />
+        </label>
+        <button id="action-csv">CSV 내보내기</button>
       </div>
-
-      <div class="bars" id="excel-bars"></div>
-
-      <div class="table-wrap">
-        <table id="excel-pivot">
+      <div class="table-wrap" id="action-table-wrap" style="display:none">
+        <table id="action-table">
           <thead></thead>
           <tbody></tbody>
         </table>
       </div>
 
-      <div id="excel-extras"></div>
+      <h3 class="sec-title" id="report-title" style="display:none">📋 객실별 소비 현황</h3>
+      <div class="row" id="report-controls" style="display:none">
+        <label>상태 필터
+          <select id="report-status-filter">
+            <option value="">전체</option>
+            <option value="match">일치만</option>
+            <option value="problems">문제 있음만</option>
+          </select>
+        </label>
+        <label>검색
+          <input type="text" id="report-search" placeholder="자유 검색…" />
+        </label>
+        <button id="report-csv">CSV 내보내기</button>
+      </div>
+      <div class="table-wrap" id="report-table-wrap" style="display:none">
+        <table id="report-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
-      <div id="report-section" class="hidden">
-        <h3>종합 Report</h3>
-        <div class="row">
-          <label>상태 필터
-            <select id="report-status-filter">
-              <option value="">전체</option>
-              <option value="match">일치만</option>
-              <option value="problems">문제 있음만 (mismatch + only)</option>
-              <option value="qty-mismatch">수량 불일치</option>
-              <option value="only-excel">Excel만</option>
-              <option value="only-xml">XML만</option>
-            </select>
-          </label>
-          <label>Room/Conf/Guest/Item 검색
-            <input type="text" id="report-search" placeholder="자유 검색…" />
-          </label>
-          <button id="report-csv">CSV 내보내기</button>
+      <details class="collapsible">
+        <summary>📊 Item × Room Pivot (상세)</summary>
+        <div class="row legend hidden" id="legend">
+          <span class="lg-item"><span class="sw cell-match"></span>일치</span>
+          <span class="lg-item"><span class="sw cell-qty-mismatch"></span>수량 불일치</span>
+          <span class="lg-item"><span class="sw cell-only-excel"></span>Excel만 (미청구)</span>
+          <span class="lg-item"><span class="sw cell-only-xml"></span>XML만 (HK 미보고)</span>
+          <span class="lg-item"><span class="sw cell-have"></span>수량 (미매칭)</span>
         </div>
         <div class="table-wrap">
-          <table id="report-table">
+          <table id="excel-pivot">
             <thead></thead>
             <tbody></tbody>
           </table>
         </div>
-      </div>
+        <div id="excel-extras"></div>
+      </details>
+
+      <details class="collapsible">
+        <summary>📈 Item별 판매량 차트</summary>
+        <div class="bars" id="excel-bars"></div>
+      </details>
     </section>
 
     <section id="tab-xml" class="panel">
