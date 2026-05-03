@@ -15,7 +15,7 @@ const app = {
   matchResult: null,
   xml: { path: null, keys: [], rows: [] },
   resv: { path: null, byRoom: {}, count: 0 },
-  reportSort: { col: 'status', dir: 'asc' },
+  reportSort: { col: 'no', dir: 'asc' },
 };
 
 // ---------- Excel tab ----------
@@ -122,77 +122,107 @@ $reportSearch.addEventListener('input', renderReport);
 document.getElementById('report-csv').addEventListener('click', exportReportCsv);
 
 const REPORT_COLS = [
-  { key: 'displayColor', label: 'Display' },
-  { key: 'room', label: 'Room' },
+  { key: 'no', label: 'No' },
   { key: 'confNo', label: 'Conf No' },
-  { key: 'guest', label: 'Guest' },
-  { key: 'item', label: 'Item' },
-  { key: 'excelQty', label: 'Excel' },
-  { key: 'xmlQty', label: 'XML' },
-  { key: 'status', label: 'Status' },
+  { key: 'name', label: 'Name' },
+  { key: 'minibar', label: 'Minibar List' },
 ];
+
+const TITLE_RE = /,\s*(MR|MRS|MS|MISS|DR|MSTR|MASTER|SIR|MADAM)\.?\s*$/i;
+function cleanGuestName(s) {
+  if (!s) return '';
+  let n = String(s).trim();
+  // remove trailing "(1)" type suffix
+  n = n.replace(/\s*\(\d+\)\s*$/, '').trim();
+  // remove trailing title (could appear once or multiple times)
+  while (TITLE_RE.test(n)) n = n.replace(TITLE_RE, '').trim();
+  return n;
+}
+
+function pickOverallStatus(statuses) {
+  if (statuses.has('only-excel')) return 'only-excel';
+  if (statuses.has('qty-mismatch')) return 'qty-mismatch';
+  if (statuses.has('only-xml')) return 'only-xml';
+  if (statuses.has('match')) return 'match';
+  return '';
+}
+
+function formatMinibarList(items) {
+  return items
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((it) => {
+      const e = it.excelQty || 0, x = it.xmlQty || 0;
+      if (e === x) return `${it.name} ${e}`;
+      if (e > 0 && x === 0) return `${it.name} ${e}`;
+      if (e === 0 && x > 0) return `${it.name} ${x}`;
+      return `${it.name} ${e}/${x}`;
+    })
+    .join(', ');
+}
 
 function buildReportRows() {
   const m = app.matchResult;
   if (!m) return [];
-  const rows = [];
-  const lookupResv = (room) => {
-    const list = app.resv.byRoom[room] || [];
-    if (list.length === 0) return null;
-    return list[0];
+  const byRoom = {};
+  const ensure = (room) => {
+    if (!byRoom[room]) byRoom[room] = { room, items: [], statuses: new Set(), xmlGuests: new Set() };
+    return byRoom[room];
   };
   for (const c of m.cells) {
-    if (c.status === 'empty') continue;
-    const resv = lookupResv(c.room);
-    rows.push({
-      displayColor: resv?.displayColor || '',
-      room: c.room,
-      confNo: resv?.confirmationNumber || '',
-      guest: resv?.name || (c.xmlGuests && c.xmlGuests[0]) || '',
-      xmlGuestExtra: (c.xmlGuests && c.xmlGuests.length) ? c.xmlGuests.join(' / ') : '',
-      item: c.item,
-      excelQty: c.excelQty,
-      xmlQty: c.xmlQty,
-      status: c.status,
-      _src: 'cell',
-    });
+    const e = ensure(c.room);
+    if (c.excelQty > 0 || c.xmlQty > 0) {
+      e.items.push({ name: c.item, excelQty: c.excelQty, xmlQty: c.xmlQty, status: c.status });
+    }
+    if (c.status && c.status !== 'empty') e.statuses.add(c.status);
+    if (c.xmlGuests) for (const g of c.xmlGuests) e.xmlGuests.add(g);
   }
-  for (const e of m.extras) {
-    const resv = lookupResv(e.room);
+  for (const x of m.extras) {
+    const e = ensure(x.room);
+    e.items.push({ name: x.item, excelQty: 0, xmlQty: x.xmlQty, status: 'only-xml' });
+    e.statuses.add('only-xml');
+    if (x.xmlGuests) for (const g of x.xmlGuests) e.xmlGuests.add(g);
+  }
+  const lookupResv = (room) => (app.resv.byRoom[room] || [])[0] || null;
+  const rows = [];
+  for (const room of Object.keys(byRoom)) {
+    const r = byRoom[room];
+    if (r.items.length === 0) continue;
+    const resv = lookupResv(room);
+    const xmlGuestRaw = [...r.xmlGuests][0] || '';
     rows.push({
-      displayColor: resv?.displayColor || '',
-      room: e.room,
+      room,
       confNo: resv?.confirmationNumber || '',
-      guest: resv?.name || (e.xmlGuests && e.xmlGuests[0]) || '',
-      xmlGuestExtra: (e.xmlGuests && e.xmlGuests.length) ? e.xmlGuests.join(' / ') : '',
-      item: e.item,
-      excelQty: 0,
-      xmlQty: e.xmlQty,
-      status: 'only-xml',
-      _src: 'extra',
+      name: cleanGuestName(resv?.name) || cleanGuestName(xmlGuestRaw),
+      displayColor: resv?.displayColor || '',
+      items: r.items,
+      minibar: formatMinibarList(r.items),
+      status: pickOverallStatus(r.statuses),
     });
   }
   return rows;
 }
 
-const STATUS_PRIO = { 'qty-mismatch': 0, 'only-excel': 1, 'only-xml': 2, 'match': 3 };
+const STATUS_PRIO = { 'qty-mismatch': 0, 'only-excel': 1, 'only-xml': 2, 'match': 3, '': 4 };
 
 function filteredSortedReport() {
   let rows = buildReportRows();
   const sf = $reportStatus.value;
-  if (sf === 'problems') rows = rows.filter(r => r.status !== 'match');
-  else if (sf) rows = rows.filter(r => r.status === sf);
+  if (sf === 'problems') rows = rows.filter((r) => r.status && r.status !== 'match');
+  else if (sf) rows = rows.filter((r) => r.status === sf);
   const q = $reportSearch.value.trim().toLowerCase();
-  if (q) rows = rows.filter(r =>
-    [r.room, r.confNo, r.guest, r.item, r.xmlGuestExtra].some(v => String(v).toLowerCase().includes(q))
-  );
+  if (q) {
+    rows = rows.filter((r) =>
+      [r.room, r.confNo, r.name, r.minibar].some((v) => String(v).toLowerCase().includes(q))
+    );
+  }
   const { col, dir } = app.reportSort;
   const sign = dir === 'asc' ? 1 : -1;
   rows.sort((a, b) => {
-    let av = a[col], bv = b[col];
-    if (col === 'status') { av = STATUS_PRIO[av] ?? 99; bv = STATUS_PRIO[bv] ?? 99; }
-    if (typeof av === 'number' && typeof bv === 'number') return sign * (av - bv);
-    return sign * String(av).localeCompare(String(bv));
+    if (col === 'no') return sign * String(a.room).localeCompare(String(b.room));
+    if (col === 'minibar') return sign * (b.items.length - a.items.length);
+    if (col === 'status') return sign * ((STATUS_PRIO[a.status] ?? 9) - (STATUS_PRIO[b.status] ?? 9));
+    return sign * String(a[col] || '').localeCompare(String(b[col] || ''));
   });
   return rows;
 }
@@ -221,43 +251,30 @@ function renderReport() {
 
   const rows = filteredSortedReport();
   const frag = document.createDocumentFragment();
+  let i = 0;
   for (const r of rows) {
+    i++;
     const tr = document.createElement('tr');
-    tr.className = 'cell-' + r.status;
-    const dc = r.displayColor;
-    const dcCell = dc
-      ? `<span class="display-color" style="background:${escapeHtml(dc)}" title="${escapeHtml(dc)}"></span>`
-      : '';
-    const guestTip = r.xmlGuestExtra && r.xmlGuestExtra !== r.guest
-      ? ` (XML: ${escapeHtml(r.xmlGuestExtra)})` : '';
+    tr.className = 'cell-' + (r.status || 'empty');
     tr.innerHTML =
-      `<td>${dcCell}</td>` +
-      `<td>${r.room}</td>` +
+      `<td>${i}</td>` +
       `<td>${escapeHtml(r.confNo)}</td>` +
-      `<td title="${escapeHtml(r.guest + guestTip)}">${escapeHtml(r.guest)}${guestTip ? ' *' : ''}</td>` +
-      `<td>${escapeHtml(r.item)}</td>` +
-      `<td>${r.excelQty || ''}</td>` +
-      `<td>${r.xmlQty || ''}</td>` +
-      `<td><b>${r.status}</b></td>`;
+      `<td title="Room ${r.room}">${escapeHtml(r.name)}</td>` +
+      `<td>${escapeHtml(r.minibar)}</td>`;
     frag.appendChild(tr);
   }
   tbody.appendChild(frag);
-
-  const total = rows.length;
-  const meta = document.getElementById('excel-meta');
-  if (meta && app.matchResult) {
-    // append/replace report count badge
-    // (left as-is; cards already show stats)
-  }
 }
 
 function exportReportCsv() {
   const rows = filteredSortedReport();
-  const head = ['DisplayColor', 'Room', 'ConfNo', 'Guest', 'XMLGuests', 'Item', 'ExcelQty', 'XMLQty', 'Status'];
+  const head = ['No', 'Room', 'ConfNo', 'Name', 'MinibarList', 'Status'];
   const csvLines = [head.join(',')];
+  let i = 0;
   for (const r of rows) {
-    const cells = [r.displayColor, r.room, r.confNo, r.guest, r.xmlGuestExtra, r.item, r.excelQty, r.xmlQty, r.status]
-      .map(v => {
+    i++;
+    const cells = [i, r.room, r.confNo, r.name, r.minibar, r.status]
+      .map((v) => {
         const s = String(v ?? '');
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
       });
