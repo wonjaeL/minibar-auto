@@ -1,0 +1,41 @@
+{
+  "name": "minibar-auto",
+  "version": "0.1.0",
+  "description": "Daily Minibar room list extractor + finjrnl XML viewer",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "fast-xml-parser": "^4.5.0"
+  },
+  "build": {
+    "appId": "com.wonjae.minibarauto",
+    "productName": "MinibarAuto",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "renderer.js",
+      "styles.css",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "MinibarAuto-${version}-portable.exe"
+    }
+  }
+}

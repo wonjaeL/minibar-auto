@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>Minibar Auto</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="tabs">
+      <button class="tab active" data-tab="excel">Excel → Room List</button>
+      <button class="tab" data-tab="xml">XML Viewer</button>
+    </header>
+
+    <section id="tab-excel" class="panel active">
+      <div class="row">
+        <button id="excel-pick">Excel 파일 선택</button>
+        <span id="excel-path" class="path muted">파일 없음</span>
+      </div>
+      <div class="row">
+        <label>날짜
+          <input type="date" id="excel-date" />
+        </label>
+        <button id="excel-run" disabled>Room List 추출</button>
+        <button id="excel-copy" disabled>복사</button>
+      </div>
+      <div class="row">
+        <span id="excel-meta" class="muted"></span>
+      </div>
+      <textarea id="excel-out" rows="6" placeholder="결과가 여기에 표시됩니다…" readonly></textarea>
+    </section>
+
+    <section id="tab-xml" class="panel">
+      <div class="row">
+        <button id="xml-pick">XML 파일 선택</button>
+        <span id="xml-path" class="path muted">파일 없음</span>
+        <span id="xml-count" class="muted"></span>
+      </div>
+      <div class="row">
+        <label>표시할 컬럼
+          <select id="xml-columns" multiple size="1"></select>
+        </label>
+        <button id="xml-clear-filters">필터 초기화</button>
+        <button id="xml-clear-sort">정렬 초기화</button>
+      </div>
+      <div class="table-wrap">
+        <table id="xml-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
