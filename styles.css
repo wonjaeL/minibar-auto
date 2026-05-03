@@ -24,8 +24,9 @@ body {
 .tab.active { background: white; font-weight: 600; }
 .panel { display: none; padding: 16px; }
 .panel.active { display: block; }
+.hidden { display: none !important; }
 .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
-.path { font-family: ui-monospace, monospace; font-size: 12px; }
+.path { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
 .muted { color: #777; }
 button {
   padding: 6px 12px;
@@ -49,8 +50,34 @@ textarea {
   border-radius: 4px;
   resize: vertical;
 }
+
+.csv-box { margin: 6px 0 12px; }
+.csv-box summary { cursor: pointer; font-size: 12px; color: #555; }
+
+.cards { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+.card {
+  padding: 8px 14px;
+  border: 1px solid #d4d4d7;
+  background: white;
+  border-radius: 6px;
+  min-width: 110px;
+}
+.card .v { font-size: 18px; font-weight: 600; }
+.card .l { font-size: 11px; color: #777; }
+
+.legend { font-size: 12px; }
+.lg-item { display: inline-flex; align-items: center; gap: 4px; }
+.sw { display: inline-block; width: 14px; height: 14px; border: 1px solid #999; border-radius: 2px; }
+
+.bars { margin: 12px 0; display: grid; grid-template-columns: 160px 1fr 50px; gap: 4px 8px; align-items: center; }
+.bars .blbl { font-size: 12px; }
+.bars .btrack { background: #eef0f3; height: 14px; border-radius: 7px; overflow: hidden; }
+.bars .bfill { background: #4f80ff; height: 100%; }
+.bars .bval { font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+
 .table-wrap {
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 360px);
+  min-height: 240px;
   overflow: auto;
   border: 1px solid #d4d4d7;
   border-radius: 4px;
@@ -67,20 +94,34 @@ th, td {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-th { font-weight: 600; cursor: pointer; user-select: none; }
+th { font-weight: 600; cursor: pointer; user-select: none; background: #f0f0f2; }
 th .sort-ind { color: #888; margin-left: 4px; }
-tr:nth-child(even) td { background: #fafafb; }
+
+#excel-pivot td { text-align: center; font-variant-numeric: tabular-nums; }
+#excel-pivot th:first-child, #excel-pivot td:first-child {
+  position: sticky; left: 0; background: #f0f0f2; z-index: 2; text-align: left;
+}
+#excel-pivot tbody tr:nth-child(even) td:first-child { background: #f6f6f8; }
+
+.cell-empty { background: white; color: #ccc; }
+.cell-have { background: #e6f0ff; }
+.cell-match { background: #c8f0c8; }
+.cell-qty-mismatch { background: #ffe9a8; }
+.cell-only-excel { background: #ffc8c8; }
+.cell-only-xml { background: #d8c8ff; }
+
 .filter-row input {
-  width: 100%;
-  padding: 2px 4px;
-  font-size: 11px;
-  border: 1px solid #d4d4d7;
-  border-radius: 3px;
+  width: 100%; padding: 2px 4px; font-size: 11px;
+  border: 1px solid #d4d4d7; border-radius: 3px;
 }
 .col-picker {
   display: flex; flex-wrap: wrap; gap: 4px 12px;
   max-height: 100px; overflow-y: auto;
   border: 1px solid #d4d4d7; padding: 6px; border-radius: 4px;
-  background: white;
+  background: white; margin-bottom: 8px;
 }
 .col-picker label { font-size: 12px; }
+
+#excel-extras { margin-top: 12px; }
+#excel-extras h4 { margin: 8px 0 4px; font-size: 13px; }
+#excel-extras table { background: white; border: 1px solid #d4d4d7; }

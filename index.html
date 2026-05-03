@@ -7,7 +7,7 @@
   </head>
   <body>
     <header class="tabs">
-      <button class="tab active" data-tab="excel">Excel → Room List</button>
+      <button class="tab active" data-tab="excel">Excel → 소비 현황</button>
       <button class="tab" data-tab="xml">XML Viewer</button>
     </header>
 
@@ -17,16 +17,40 @@
         <span id="excel-path" class="path muted">파일 없음</span>
       </div>
       <div class="row">
-        <label>날짜
-          <input type="date" id="excel-date" />
-        </label>
-        <button id="excel-run" disabled>Room List 추출</button>
-        <button id="excel-copy" disabled>복사</button>
+        <label>날짜 <input type="date" id="excel-date" /></label>
+        <button id="excel-run" disabled>추출</button>
+        <button id="excel-copy" disabled>Room CSV 복사</button>
+        <button id="excel-match" disabled title="XML Viewer 탭에서 XML을 먼저 로드하세요">XML과 매칭</button>
       </div>
       <div class="row">
         <span id="excel-meta" class="muted"></span>
       </div>
-      <textarea id="excel-out" rows="6" placeholder="결과가 여기에 표시됩니다…" readonly></textarea>
+
+      <details class="csv-box">
+        <summary>Room No. CSV</summary>
+        <textarea id="excel-out" rows="3" readonly></textarea>
+      </details>
+
+      <div id="excel-summary" class="cards"></div>
+
+      <div class="row legend hidden" id="legend">
+        <span class="lg-item"><span class="sw cell-match"></span>일치</span>
+        <span class="lg-item"><span class="sw cell-qty-mismatch"></span>수량 불일치</span>
+        <span class="lg-item"><span class="sw cell-only-excel"></span>Excel만</span>
+        <span class="lg-item"><span class="sw cell-only-xml"></span>XML만</span>
+        <span class="lg-item"><span class="sw cell-have"></span>수량 있음 (미매칭)</span>
+      </div>
+
+      <div class="bars" id="excel-bars"></div>
+
+      <div class="table-wrap">
+        <table id="excel-pivot">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="excel-extras"></div>
     </section>
 
     <section id="tab-xml" class="panel">
@@ -36,12 +60,10 @@
         <span id="xml-count" class="muted"></span>
       </div>
       <div class="row">
-        <label>표시할 컬럼
-          <select id="xml-columns" multiple size="1"></select>
-        </label>
         <button id="xml-clear-filters">필터 초기화</button>
         <button id="xml-clear-sort">정렬 초기화</button>
       </div>
+      <div id="xml-columns"></div>
       <div class="table-wrap">
         <table id="xml-table">
           <thead></thead>
