@@ -267,7 +267,13 @@ function renderPivot() {
 
 function renderExtras() {
   const m = app.matchResult;
-  if (!m || !m.extras || m.extras.length === 0) { $excelExtras.innerHTML = ''; return; }
+  const extrasBtn = document.getElementById('extras-copy');
+  if (!m || !m.extras || m.extras.length === 0) {
+    $excelExtras.innerHTML = '';
+    if (extrasBtn) extrasBtn.style.display = 'none';
+    return;
+  }
+  if (extrasBtn) extrasBtn.style.display = '';
   const rows = m.extras.map((e) => `<tr><td>${e.room}</td><td>${escapeHtml(e.item)}</td><td>${e.xmlQty}</td></tr>`).join('');
   $excelExtras.innerHTML = `
     <h4>XML에만 있는 항목 (Excel 그리드 외) — ${m.extras.length}건</h4>
@@ -276,6 +282,31 @@ function renderExtras() {
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+// TSV (tab-separated) — Excel pastes this directly into cells
+function toTSV(headers, rows) {
+  const esc = (v) => {
+    const s = v == null ? '' : String(v);
+    return /[\t\n\r"]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [headers.map(esc).join('\t')];
+  for (const r of rows) lines.push(r.map(esc).join('\t'));
+  return lines.join('\r\n');
+}
+
+async function copyToClipboardTSV(headers, rows, btn) {
+  try {
+    await navigator.clipboard.writeText(toTSV(headers, rows));
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓ 복사됨';
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+    }
+  } catch (e) {
+    alert('복사 실패: ' + e.message);
+  }
 }
 
 // ---------- Action Report (NEW: priority-driven reconciliation) ----------
@@ -288,6 +319,12 @@ const $actionSearch = document.getElementById('action-search');
 $actionFilter.addEventListener('change', renderActionReport);
 $actionSearch.addEventListener('input', renderActionReport);
 document.getElementById('action-csv').addEventListener('click', exportActionCsv);
+document.getElementById('action-copy').addEventListener('click', (ev) => {
+  const rows = filteredActionRows();
+  const head = ['#', '유형', 'Room', 'Conf No', 'Name', '객실 상태', '항목', '예상 손실(원)'];
+  const body = rows.map((r) => [r.priority, r.severityLabel, r.room, r.confNo, r.name, r.guestKind, r.issuesText, r.netLoss]);
+  copyToClipboardTSV(head, body, ev.currentTarget);
+});
 
 const ACTION_COLS = [
   { key: 'priority', label: '#' },
@@ -469,6 +506,46 @@ const $reportSearch = document.getElementById('report-search');
 $reportStatus.addEventListener('change', renderReport);
 $reportSearch.addEventListener('input', renderReport);
 document.getElementById('report-csv').addEventListener('click', exportReportCsv);
+document.getElementById('report-copy').addEventListener('click', (ev) => {
+  const rows = filteredSortedReport();
+  const head = ['No', 'Room', 'Conf No', 'Name', '상태', 'Minibar List'];
+  const body = rows.map((r, i) => [i + 1, r.room, r.confNo, r.name, r.guestKind, r.minibar]);
+  copyToClipboardTSV(head, body, ev.currentTarget);
+});
+
+// Pivot copy
+document.getElementById('pivot-copy').addEventListener('click', (ev) => {
+  const d = app.dayData;
+  if (!d) return;
+  const head = ['Item', ...d.rooms, '합계'];
+  const body = d.items.map((it) => {
+    let sum = 0;
+    const cells = d.rooms.map((room) => {
+      const q = (d.grid[room] && d.grid[room][it.name]) || 0;
+      sum += q;
+      return q || '';
+    });
+    return [it.name, ...cells, sum || ''];
+  });
+  copyToClipboardTSV(head, body, ev.currentTarget);
+});
+
+// Extras (XML-only) copy
+document.getElementById('extras-copy').addEventListener('click', (ev) => {
+  const m = app.matchResult;
+  if (!m || !m.extras) return;
+  const head = ['Room', 'Item', 'XML Qty'];
+  const body = m.extras.map((e) => [e.room, e.item, e.xmlQty]);
+  copyToClipboardTSV(head, body, ev.currentTarget);
+});
+
+// XML viewer copy
+document.getElementById('xml-copy').addEventListener('click', (ev) => {
+  const cols = xmlState.visibleKeys;
+  const rows = getFilteredSorted();
+  const body = rows.map((r) => cols.map((k) => r[k] || ''));
+  copyToClipboardTSV(cols, body, ev.currentTarget);
+});
 
 const REPORT_COLS = [
   { key: 'no', label: 'No' },

@@ -77,6 +77,7 @@
         <label>검색
           <input type="text" id="action-search" placeholder="Room/Conf/Name/Item…" />
         </label>
+        <button id="action-copy">📋 Excel 복사</button>
         <button id="action-csv">CSV 내보내기</button>
       </div>
       <div class="table-wrap" id="action-table-wrap" style="display:none">
@@ -98,6 +99,7 @@
         <label>검색
           <input type="text" id="report-search" placeholder="자유 검색…" />
         </label>
+        <button id="report-copy">📋 Excel 복사</button>
         <button id="report-csv">CSV 내보내기</button>
       </div>
       <div class="table-wrap" id="report-table-wrap" style="display:none">
@@ -109,6 +111,10 @@
 
       <details class="collapsible">
         <summary>📊 Item × Room Pivot (상세)</summary>
+        <div class="row">
+          <button id="pivot-copy">📋 Excel 복사</button>
+          <button id="extras-copy" style="display:none">📋 XML-only 복사</button>
+        </div>
         <div class="row legend hidden" id="legend">
           <span class="lg-item"><span class="sw cell-match"></span>일치</span>
           <span class="lg-item"><span class="sw cell-qty-mismatch"></span>수량 불일치</span>
@@ -140,6 +146,7 @@
       <div class="row">
         <button id="xml-clear-filters">필터 초기화</button>
         <button id="xml-clear-sort">정렬 초기화</button>
+        <button id="xml-copy">📋 Excel 복사 (필터/정렬 적용)</button>
       </div>
       <div id="xml-columns"></div>
       <div class="table-wrap">
