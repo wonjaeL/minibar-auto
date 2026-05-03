@@ -13,14 +13,19 @@
 
     <section id="tab-excel" class="panel active">
       <div class="row">
-        <button id="excel-pick">Excel 파일 선택</button>
-        <span id="excel-path" class="path muted">파일 없음</span>
+        <button id="excel-pick">Excel 선택</button>
+        <span id="excel-path" class="path muted">Excel 없음</span>
+      </div>
+      <div class="row">
+        <button id="resv-pick">Reservation CSV 선택</button>
+        <span id="resv-path" class="path muted">CSV 없음</span>
+        <span id="resv-meta" class="muted"></span>
       </div>
       <div class="row">
         <label>날짜 <input type="date" id="excel-date" /></label>
         <button id="excel-run" disabled>추출</button>
         <button id="excel-copy" disabled>Room CSV 복사</button>
-        <button id="excel-match" disabled title="XML Viewer 탭에서 XML을 먼저 로드하세요">XML과 매칭</button>
+        <button id="excel-match" disabled title="XML Viewer 탭에서 XML을 먼저 로드하세요">XML과 매칭 + Report</button>
       </div>
       <div class="row">
         <span id="excel-meta" class="muted"></span>
@@ -51,6 +56,32 @@
       </div>
 
       <div id="excel-extras"></div>
+
+      <div id="report-section" class="hidden">
+        <h3>종합 Report</h3>
+        <div class="row">
+          <label>상태 필터
+            <select id="report-status-filter">
+              <option value="">전체</option>
+              <option value="match">일치만</option>
+              <option value="problems">문제 있음만 (mismatch + only)</option>
+              <option value="qty-mismatch">수량 불일치</option>
+              <option value="only-excel">Excel만</option>
+              <option value="only-xml">XML만</option>
+            </select>
+          </label>
+          <label>Room/Conf/Guest/Item 검색
+            <input type="text" id="report-search" placeholder="자유 검색…" />
+          </label>
+          <button id="report-csv">CSV 내보내기</button>
+        </div>
+        <div class="table-wrap">
+          <table id="report-table">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <section id="tab-xml" class="panel">

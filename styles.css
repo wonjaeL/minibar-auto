@@ -125,3 +125,13 @@ th .sort-ind { color: #888; margin-left: 4px; }
 #excel-extras { margin-top: 12px; }
 #excel-extras h4 { margin: 8px 0 4px; font-size: 13px; }
 #excel-extras table { background: white; border: 1px solid #d4d4d7; }
+
+#report-section { margin-top: 18px; }
+#report-section h3 { margin: 6px 0 8px; font-size: 14px; }
+#report-table tr.cell-match td { background: #c8f0c8; }
+#report-table tr.cell-qty-mismatch td { background: #ffe9a8; }
+#report-table tr.cell-only-excel td { background: #ffc8c8; }
+#report-table tr.cell-only-xml td { background: #d8c8ff; }
+.display-color { display: inline-block; width: 14px; height: 14px; border: 1px solid #555; border-radius: 50%; vertical-align: middle; }
+#report-status-filter, #report-search { padding: 4px 6px; border: 1px solid #c0c0c4; border-radius: 4px; font-size: 12px; }
+#report-search { width: 220px; }

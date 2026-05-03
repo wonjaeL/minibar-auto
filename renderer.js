@@ -11,9 +11,11 @@ document.querySelectorAll('.tab').forEach((btn) => {
 // ---------- Shared state ----------
 const app = {
   excelPath: null,
-  dayData: null,    // { rooms, items, grid, businessDate, csv, sheets }
+  dayData: null,
   matchResult: null,
   xml: { path: null, keys: [], rows: [] },
+  resv: { path: null, byRoom: {}, count: 0 },
+  reportSort: { col: 'status', dir: 'asc' },
 };
 
 // ---------- Excel tab ----------
@@ -46,6 +48,21 @@ document.getElementById('excel-pick').addEventListener('click', async () => {
   $excelPath.textContent = p;
   $excelPath.classList.remove('muted');
   refreshExcelButtons();
+});
+
+const $resvPath = document.getElementById('resv-path');
+const $resvMeta = document.getElementById('resv-meta');
+document.getElementById('resv-pick').addEventListener('click', async () => {
+  const p = await window.api.selectFile('csv');
+  if (!p) return;
+  $resvPath.textContent = p;
+  $resvPath.classList.remove('muted');
+  $resvMeta.textContent = '파싱 중…';
+  const r = await window.api.parseReservations(p);
+  if (r.error) { $resvMeta.textContent = '오류: ' + r.error; return; }
+  app.resv = { path: p, byRoom: r.byRoom, count: r.count };
+  $resvMeta.textContent = `${r.count}건 예약 / ${Object.keys(r.byRoom).length} rooms`;
+  if (app.matchResult) renderReport();
 });
 
 $excelDate.addEventListener('change', refreshExcelButtons);
@@ -92,7 +109,168 @@ $excelMatch.addEventListener('click', async () => {
   renderSummary();
   renderPivot();
   renderExtras();
+  renderReport();
 });
+
+// ---------- Report ----------
+const $reportSection = document.getElementById('report-section');
+const $reportTable = document.getElementById('report-table');
+const $reportStatus = document.getElementById('report-status-filter');
+const $reportSearch = document.getElementById('report-search');
+$reportStatus.addEventListener('change', renderReport);
+$reportSearch.addEventListener('input', renderReport);
+document.getElementById('report-csv').addEventListener('click', exportReportCsv);
+
+const REPORT_COLS = [
+  { key: 'displayColor', label: 'Display' },
+  { key: 'room', label: 'Room' },
+  { key: 'confNo', label: 'Conf No' },
+  { key: 'guest', label: 'Guest' },
+  { key: 'item', label: 'Item' },
+  { key: 'excelQty', label: 'Excel' },
+  { key: 'xmlQty', label: 'XML' },
+  { key: 'status', label: 'Status' },
+];
+
+function buildReportRows() {
+  const m = app.matchResult;
+  if (!m) return [];
+  const rows = [];
+  const lookupResv = (room) => {
+    const list = app.resv.byRoom[room] || [];
+    if (list.length === 0) return null;
+    return list[0];
+  };
+  for (const c of m.cells) {
+    if (c.status === 'empty') continue;
+    const resv = lookupResv(c.room);
+    rows.push({
+      displayColor: resv?.displayColor || '',
+      room: c.room,
+      confNo: resv?.confirmationNumber || '',
+      guest: resv?.name || (c.xmlGuests && c.xmlGuests[0]) || '',
+      xmlGuestExtra: (c.xmlGuests && c.xmlGuests.length) ? c.xmlGuests.join(' / ') : '',
+      item: c.item,
+      excelQty: c.excelQty,
+      xmlQty: c.xmlQty,
+      status: c.status,
+      _src: 'cell',
+    });
+  }
+  for (const e of m.extras) {
+    const resv = lookupResv(e.room);
+    rows.push({
+      displayColor: resv?.displayColor || '',
+      room: e.room,
+      confNo: resv?.confirmationNumber || '',
+      guest: resv?.name || (e.xmlGuests && e.xmlGuests[0]) || '',
+      xmlGuestExtra: (e.xmlGuests && e.xmlGuests.length) ? e.xmlGuests.join(' / ') : '',
+      item: e.item,
+      excelQty: 0,
+      xmlQty: e.xmlQty,
+      status: 'only-xml',
+      _src: 'extra',
+    });
+  }
+  return rows;
+}
+
+const STATUS_PRIO = { 'qty-mismatch': 0, 'only-excel': 1, 'only-xml': 2, 'match': 3 };
+
+function filteredSortedReport() {
+  let rows = buildReportRows();
+  const sf = $reportStatus.value;
+  if (sf === 'problems') rows = rows.filter(r => r.status !== 'match');
+  else if (sf) rows = rows.filter(r => r.status === sf);
+  const q = $reportSearch.value.trim().toLowerCase();
+  if (q) rows = rows.filter(r =>
+    [r.room, r.confNo, r.guest, r.item, r.xmlGuestExtra].some(v => String(v).toLowerCase().includes(q))
+  );
+  const { col, dir } = app.reportSort;
+  const sign = dir === 'asc' ? 1 : -1;
+  rows.sort((a, b) => {
+    let av = a[col], bv = b[col];
+    if (col === 'status') { av = STATUS_PRIO[av] ?? 99; bv = STATUS_PRIO[bv] ?? 99; }
+    if (typeof av === 'number' && typeof bv === 'number') return sign * (av - bv);
+    return sign * String(av).localeCompare(String(bv));
+  });
+  return rows;
+}
+
+function renderReport() {
+  if (!app.matchResult) { $reportSection.classList.add('hidden'); return; }
+  $reportSection.classList.remove('hidden');
+  const thead = $reportTable.querySelector('thead');
+  const tbody = $reportTable.querySelector('tbody');
+  thead.innerHTML = '';
+  tbody.innerHTML = '';
+
+  const hr = document.createElement('tr');
+  for (const c of REPORT_COLS) {
+    const th = document.createElement('th');
+    const ind = app.reportSort.col === c.key ? (app.reportSort.dir === 'asc' ? '▲' : '▼') : '';
+    th.innerHTML = `${c.label} <span class="sort-ind">${ind}</span>`;
+    th.addEventListener('click', () => {
+      if (app.reportSort.col === c.key) app.reportSort.dir = app.reportSort.dir === 'asc' ? 'desc' : 'asc';
+      else { app.reportSort.col = c.key; app.reportSort.dir = 'asc'; }
+      renderReport();
+    });
+    hr.appendChild(th);
+  }
+  thead.appendChild(hr);
+
+  const rows = filteredSortedReport();
+  const frag = document.createDocumentFragment();
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    tr.className = 'cell-' + r.status;
+    const dc = r.displayColor;
+    const dcCell = dc
+      ? `<span class="display-color" style="background:${escapeHtml(dc)}" title="${escapeHtml(dc)}"></span>`
+      : '';
+    const guestTip = r.xmlGuestExtra && r.xmlGuestExtra !== r.guest
+      ? ` (XML: ${escapeHtml(r.xmlGuestExtra)})` : '';
+    tr.innerHTML =
+      `<td>${dcCell}</td>` +
+      `<td>${r.room}</td>` +
+      `<td>${escapeHtml(r.confNo)}</td>` +
+      `<td title="${escapeHtml(r.guest + guestTip)}">${escapeHtml(r.guest)}${guestTip ? ' *' : ''}</td>` +
+      `<td>${escapeHtml(r.item)}</td>` +
+      `<td>${r.excelQty || ''}</td>` +
+      `<td>${r.xmlQty || ''}</td>` +
+      `<td><b>${r.status}</b></td>`;
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+
+  const total = rows.length;
+  const meta = document.getElementById('excel-meta');
+  if (meta && app.matchResult) {
+    // append/replace report count badge
+    // (left as-is; cards already show stats)
+  }
+}
+
+function exportReportCsv() {
+  const rows = filteredSortedReport();
+  const head = ['DisplayColor', 'Room', 'ConfNo', 'Guest', 'XMLGuests', 'Item', 'ExcelQty', 'XMLQty', 'Status'];
+  const csvLines = [head.join(',')];
+  for (const r of rows) {
+    const cells = [r.displayColor, r.room, r.confNo, r.guest, r.xmlGuestExtra, r.item, r.excelQty, r.xmlQty, r.status]
+      .map(v => {
+        const s = String(v ?? '');
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      });
+    csvLines.push(cells.join(','));
+  }
+  const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const d = app.dayData?.businessDate || 'report';
+  a.download = `minibar-report-${d}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 function renderSummary() {
   const d = app.dayData;

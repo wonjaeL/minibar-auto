@@ -1,6 +1,6 @@
 {
   "name": "minibar-auto",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Daily Minibar room list extractor + finjrnl XML viewer",
   "main": "main.js",
   "scripts": {

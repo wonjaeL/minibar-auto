@@ -31,12 +31,20 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.handle('select-file', async (_evt, kind) => {
-  const filters =
-    kind === 'xml'
-      ? [{ name: 'XML', extensions: ['xml', 'XML'] }]
-      : [{ name: 'Excel', extensions: ['xlsx', 'xls'] }];
+  let filters;
+  let title;
+  if (kind === 'xml') {
+    filters = [{ name: 'XML', extensions: ['xml', 'XML'] }];
+    title = 'Select finjrnl XML';
+  } else if (kind === 'csv') {
+    filters = [{ name: 'CSV', extensions: ['csv'] }];
+    title = 'Select reservation CSV';
+  } else {
+    filters = [{ name: 'Excel', extensions: ['xlsx', 'xls'] }];
+    title = 'Select minibar Excel';
+  }
   const r = await dialog.showOpenDialog({
-    title: kind === 'xml' ? 'Select finjrnl XML' : 'Select minibar Excel',
+    title,
     filters,
     properties: ['openFile'],
   });
@@ -163,9 +171,42 @@ ipcMain.handle('parse-xml', async (_evt, filePath) => {
   }
 });
 
+ipcMain.handle('parse-reservations', async (_evt, filePath) => {
+  try {
+    const text = fs.readFileSync(filePath, 'utf8').replace(/^﻿/, '');
+    const wb = XLSX.read(text, { type: 'string' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const byRoom = {};
+    for (const r of rows) {
+      const roomRaw = String(r['Room'] || '').trim();
+      if (!roomRaw) continue;
+      const room = pad4(roomRaw);
+      const entry = {
+        confirmationNumber: String(r['Confirmation Number'] || '').trim(),
+        name: String(r['Name'] || '').trim(),
+        displayColor: String(r['Display Color'] || '').trim(),
+        arrival: String(r['Arrival'] || '').trim(),
+        departure: String(r['Departure'] || '').trim(),
+        roomType: String(r['Room Type'] || '').trim(),
+        balance: String(r['Balance'] || '').trim(),
+        group: String(r['Group'] || '').trim(),
+        vipCode: String(r['VIP Code'] || '').trim(),
+        membershipLevel: String(r['Membership Level'] || '').trim(),
+      };
+      if (!byRoom[room]) byRoom[room] = [];
+      byRoom[room].push(entry);
+    }
+    return { byRoom, count: rows.length };
+  } catch (e) {
+    return { error: e.message };
+  }
+});
+
 ipcMain.handle('match-xml', async (_evt, dayData, xmlRecords) => {
   const targetDate = dayData.businessDate;
   const xmlIndex = {};
+  const xmlGuestIndex = {}; // room|item -> Set of guest names
   let xmlOnDateCount = 0;
   const xmlDateSet = new Set();
   for (const r of xmlRecords) {
@@ -175,9 +216,13 @@ ipcMain.handle('match-xml', async (_evt, dayData, xmlRecords) => {
     const room = pad4(r.ROOM || '');
     const item = String(r.ARTICLE_DESCRIPTION || '').trim();
     const qty = parseInt(r.QUANTITY, 10) || 0;
+    const guest = String(r.GUEST_FULL_NAME || '').trim();
     if (!room || !item) continue;
     if (!xmlIndex[room]) xmlIndex[room] = {};
     xmlIndex[room][item] = (xmlIndex[room][item] || 0) + qty;
+    const k = `${room}|${item}`;
+    if (!xmlGuestIndex[k]) xmlGuestIndex[k] = new Set();
+    if (guest) xmlGuestIndex[k].add(guest);
   }
 
   const cells = [];
@@ -196,7 +241,9 @@ ipcMain.handle('match-xml', async (_evt, dayData, xmlRecords) => {
       else if (xmlQty === 0) { status = 'only-excel'; stats.onlyExcel++; }
       else if (excelQty === 0) { status = 'only-xml'; stats.onlyXml++; }
       else { status = 'qty-mismatch'; stats.qtyMismatch++; }
-      cells.push({ room, item: itemName, excelQty, xmlQty, status });
+      const xg = xmlGuestIndex[`${room}|${itemName}`];
+      cells.push({ room, item: itemName, excelQty, xmlQty, status,
+        xmlGuests: xg ? [...xg] : [] });
     }
   }
 
@@ -204,7 +251,9 @@ ipcMain.handle('match-xml', async (_evt, dayData, xmlRecords) => {
   for (const room of Object.keys(xmlIndex)) {
     for (const item of Object.keys(xmlIndex[room])) {
       if (!visited.has(`${room}|${item}`)) {
-        extras.push({ room, item, xmlQty: xmlIndex[room][item] });
+        const xg = xmlGuestIndex[`${room}|${item}`];
+        extras.push({ room, item, xmlQty: xmlIndex[room][item],
+          xmlGuests: xg ? [...xg] : [] });
         stats.onlyXml++;
       }
     }
